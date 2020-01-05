@@ -1,0 +1,19 @@
+{
+  "tableFullName": "edw.sample",
+  "keyColName": "custom_no",
+  "keyColValueList": [
+    "1",
+    "2",
+    "3"
+  ],
+  "targetColNameList": [
+    "address",
+    "tel_no",
+    "sel_no"
+  ],
+  "inputFilePaths": [
+    "/user/hive/warehouse/edw.db/sample",
+    "/user/hive/warehouse/edw.db/sample/dt=20191111"
+  ],
+  "configDirPath": "/user/config/path"
+}
