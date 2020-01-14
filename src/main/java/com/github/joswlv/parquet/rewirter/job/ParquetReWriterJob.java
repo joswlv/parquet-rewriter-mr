@@ -2,18 +2,14 @@ package com.github.joswlv.parquet.rewirter.job;
 
 import com.github.joswlv.parquet.rewirter.mapper.ParquetReWriterMapper;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.parquet.example.data.Group;
-import org.apache.parquet.hadoop.ParquetInputFormat;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
-import org.apache.parquet.hadoop.example.GroupReadSupport;
-import org.apache.parquet.hadoop.example.GroupWriteSupport;
+import org.apache.hadoop.mapreduce.lib.input.NLineInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 
 public class ParquetReWriterJob extends Configured {
 
@@ -25,31 +21,23 @@ public class ParquetReWriterJob extends Configured {
       throws IOException, ClassNotFoundException, InterruptedException {
     Configuration conf = getConf();
 
-    //TODO FilerBuilder 만들어야함.
-//    ParquetInputFormat.setFilterPredicate(conf, FilterApi.eq(FilterApi.intColumn("line"), -1000));
-//    final String fpString = conf.get(ParquetInputFormat.FILTER_PREDICATE);
-//    conf.set("parquet.task.side.metadata", "true");
-//    conf.set(ParquetInputFormat.FILTER_PREDICATE, fpString);
-
     Job job = Job.getInstance(conf, jobName);
     job.setJarByClass(ParquetReWriterJob.class);
-    List<String> inputPaths = Arrays.asList(conf.get("allInputFilePath").split(","));
 
-    for (String inputPath : inputPaths) {
-      FileInputFormat.addInputPath(job, new Path(inputPath));
-      FileInputFormat.addInputPath(job, new Path(inputPath));
-    }
+    String inputPath = conf.get("inputPath");
+    String mapTaskNum = conf.get("mapTaskNum");
+
+    FileInputFormat.addInputPath(job, new Path(inputPath));
+
     job.setMapperClass(ParquetReWriterMapper.class);
-    job.setMapOutputKeyClass(Void.class);
-    job.setMapOutputValueClass(Group.class);
+    job.setMapOutputKeyClass(Text.class);
+    job.setMapOutputValueClass(Text.class);
 
-    job.setInputFormatClass(ParquetInputFormat.class);
-    job.setOutputFormatClass(ParquetOutputFormat.class);
-
-    ParquetInputFormat.setReadSupportClass(job, GroupReadSupport.class);
-    ParquetOutputFormat.setWriteSupportClass(job, GroupWriteSupport.class);
+    job.setInputFormatClass(NLineInputFormat.class);
+    job.setOutputFormatClass(NullOutputFormat.class);
 
     job.setNumReduceTasks(0);
+    job.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", Integer.parseInt(mapTaskNum));
 
     return job.waitForCompletion(true);
   }

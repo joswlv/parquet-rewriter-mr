@@ -1,0 +1,5 @@
+keyColName=id
+tableFullName=db_name.table_name
+keyColValueList=919,29,339,1119
+targetColNameList=col1,col2,col3
+mapTaskNum=10

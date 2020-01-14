@@ -1,13 +1,13 @@
 package com.github.joswlv.parquet.rewirter.util;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
@@ -15,49 +15,42 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.parquet.format.converter.ParquetMetadataConverter;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 public class MetaInfoConverter {
 
-  private static Logger log = LoggerFactory.getLogger(MetaInfoConverter.class);
-
-  private static ObjectMapper objectMapper = new ObjectMapper();
-
   private final static String BIGDATA_HDFS_PREFIX = "/user/hive/warehouse/";
 
-  public static Configuration getMetadataConfig(String path) throws IOException {
-    JsonNode node = null;
+  public static Configuration getMetadataConfig(String path, String inputPath) throws IOException {
+    Properties prop = new Properties();
+    prop.load(Files.newInputStream(Paths.get(path)));
 
-    try {
-      node = objectMapper.readTree(Paths.get(path).toFile());
-    } catch (IOException e) {
-      log.error("Not find JsonFile. {}", e.getMessage());
-    }
+    String tableFullName = prop.getProperty("tableFullName");
+    String mapTaskNum = prop.getProperty("mapTaskNum");
+    String keyColName = prop.getProperty("keyColName");
+    Set<String> keyColValueList = Arrays.stream(prop.getProperty("keyColValueList").split(",", -1)).collect(Collectors.toSet());
+    Set<String> targetColNameList = Arrays.stream(prop.getProperty("targetColNameList").split(",", -1)).collect(Collectors.toSet());
 
-    String tableFullName = node.get("tableFullName").toString();
-    String keyColName = node.get("keyColName").toString();
-    String configDirPath = node.get("configDirPath").toString();
-    Set<String> keyColValueList = objectMapper
-        .convertValue(node.get("keyColValueList"), new TypeReference<HashSet<String>>() {
-        });
-    Set<String> targetColNameList = objectMapper
-        .convertValue(node.get("targetColNameList"), new TypeReference<HashSet<String>>() {
-        });
-
-    Configuration config = getConfig(configDirPath);
+    Configuration config = new Configuration();
     DistributedFileSystem dfs = (DistributedFileSystem) DistributedFileSystem.newInstance(config);
-    List<String> allInputFilePath = getAllFilePath(new Path(getJobTablePath(tableFullName)), dfs);
-
-    return setMetaConfig(config, keyColName, keyColValueList, targetColNameList, allInputFilePath);
+    String inputDirPath = getJobTablePath(tableFullName);
+    List<String> allInputFilePath = getAllFilePath(new Path(inputDirPath), dfs);
+    String parquetFileSchema = getFileSchema(config, allInputFilePath.get(0));
+    return setMetaConfig(config, keyColName, tableFullName, keyColValueList, targetColNameList, inputDirPath, parquetFileSchema, mapTaskNum, inputPath);
   }
 
-  private static Configuration setMetaConfig(Configuration config, String keyColName,
-      Set<String> keyColValueList, Set<String> targetColNameList, List<String> allInputFilePath) {
-    config.set("keyColName", keyColName);
-    config.set("keyColValueList", keyColValueList.stream().collect(Collectors.joining(",")));
-    config.set("targetColNameList", targetColNameList.stream().collect(Collectors.joining(",")));
-    config.set("allInputFilePath", allInputFilePath.stream().collect(Collectors.joining(",")));
+  private static Configuration setMetaConfig(Configuration config, String keyColName, String tableFullName,
+                                             Set<String> keyColValueList, Set<String> targetColNameList, String inputDirPath, String parquetFileSchema, String mapTaskNum, String inputPath) {
+    config.set("keyColName", keyColName.replace("\"", ""));
+    config.set("tableFullName", tableFullName.replace("\"", ""));
+    config.set("keyColValueList", keyColValueList.stream().collect(Collectors.joining(",")).replace("\"", ""));
+    config.set("targetColNameList", targetColNameList.stream().collect(Collectors.joining(",")).replace("\"", ""));
+    config.set("inputDirPath", inputDirPath);
+    config.set("mapTaskNum", mapTaskNum);
+    config.set("parquet.example.schema", parquetFileSchema);
+    config.set("inputPath", inputPath);
 
     return config;
   }
@@ -67,7 +60,9 @@ public class MetaInfoConverter {
     String DB = sp[0];
     String TABLE = sp[1];
 
-    return BIGDATA_HDFS_PREFIX + DB + ".db/" + TABLE;
+    String dbTableName = DB + ".db/" + TABLE;
+    String JobPath = BIGDATA_HDFS_PREFIX + dbTableName.replace("\"","");
+    return JobPath.replace("\"","");
   }
 
   private static List<String> getAllFilePath(Path filePath, FileSystem fs) throws IOException {
@@ -83,11 +78,16 @@ public class MetaInfoConverter {
     return fileList;
   }
 
-  //TODO READ HadoopCluster config
-  private static Configuration getConfig(String configDirPath) {
-    Configuration conf = new Configuration(false);
+  private static String getFileSchema(Configuration config, String parquetFileOnePath) {
 
-    return conf;
+    try {
+      ParquetMetadata parquetMetadata = ParquetFileReader
+              .readFooter(config,
+                      new Path(parquetFileOnePath),
+                      ParquetMetadataConverter.NO_FILTER);
+      return parquetMetadata.getFileMetaData().getSchema().toString();
+    } catch (Exception e) {
+      throw new RuntimeException("File list is empty, maybe incorrect input path or key value column isn't contain in parquet File ");
+    }
   }
-
 }

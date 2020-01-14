@@ -17,9 +17,9 @@ public class Config2Metadata {
   public Metadata getMetadata() {
     String keyColName = config.get("keyColName");
     Set<String> keyColValueList = new HashSet<>(
-        Arrays.asList(config.get("keyColValueList").split(",")));
+        Arrays.asList(config.get("keyColValueList").split(",",-1)));
     Set<String> targetColNameList = new HashSet<>(
-        Arrays.asList(config.get("targetColNameList").split(",")));
+        Arrays.asList(config.get("targetColNameList").split(",",-1)));
     return new Metadata(keyColName, keyColValueList, targetColNameList);
   }
 }
