@@ -3,9 +3,11 @@ package com.github.joswlv.parquet.rewirter.meta;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.metadata.FileMetaData;
 
 public class Metadata implements Serializable {
 
@@ -13,6 +15,8 @@ public class Metadata implements Serializable {
   private Set<String> keyColValueList;
   private Set<String> targetColNameList;
   private List<String> partitionKeyList;
+  private FileMetaData fileMetaData;
+  private Configuration conf;
 
   private CompressionCodecName rewriteDefaultCompressionCodecName = CompressionCodecName.SNAPPY;
   private int rewriteDefaultBlockSize = ParquetWriter.DEFAULT_BLOCK_SIZE;
@@ -24,6 +28,22 @@ public class Metadata implements Serializable {
     this.keyColName = keyColName;
     this.keyColValueList = keyColValueList;
     this.targetColNameList = targetColNameList;
+  }
+
+  public Configuration getConf() {
+    return conf;
+  }
+
+  public void setConf(Configuration conf) {
+    this.conf = conf;
+  }
+
+  public FileMetaData getFileMetaData() {
+    return fileMetaData;
+  }
+
+  public void setFileMetaData(FileMetaData fileMetaData) {
+    this.fileMetaData = fileMetaData;
   }
 
   public String getKeyColName() {

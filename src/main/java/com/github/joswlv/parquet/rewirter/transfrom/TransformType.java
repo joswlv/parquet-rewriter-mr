@@ -1,5 +1,6 @@
 package com.github.joswlv.parquet.rewirter.transfrom;
 
 public enum TransformType {
-  Value2Null
+  Value2Null,
+  SkipAbleValue2Null
 }

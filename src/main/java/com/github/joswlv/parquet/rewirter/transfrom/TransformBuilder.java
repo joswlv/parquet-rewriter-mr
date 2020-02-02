@@ -12,6 +12,9 @@ public class TransformBuilder {
       case Value2Null:
         transform = new Value2Null(metadata, schema);
         break;
+      case SkipAbleValue2Null:
+        transform = new SkipAbleValue2Null(metadata, schema);
+        break;
       default:
         throw new UnsupportedOperationException(type + " is not support.");
     }
